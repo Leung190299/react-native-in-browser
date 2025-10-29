@@ -8,6 +8,7 @@ import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
+import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -18,6 +19,7 @@ import com.facebook.react.bridge.WritableMap;
 public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements ActivityEventListener {
   private static final int REQUEST_CODE = 1001;
   private Promise mPromise;
+  private static Callback sUrlChangeCallback;
 
   public RNInBrowserAppModule(ReactApplicationContext reactContext) {
     super(reactContext);
@@ -31,7 +33,7 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
   }
 
   @ReactMethod
-  public void open(String url, ReadableMap options, Promise promise) {
+  public void open(String url, ReadableMap options, Callback urlChangeCallback, Promise promise) {
     Activity currentActivity = getCurrentActivity();
 
     if (currentActivity == null) {
@@ -40,6 +42,7 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
     }
 
     mPromise = promise;
+    sUrlChangeCallback = urlChangeCallback;
 
     Intent intent = new Intent(currentActivity, WebViewActivity.class);
     intent.putExtra("url", url);
@@ -52,6 +55,12 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
     intent.putExtra("showCloseButton", showCloseButton);
 
     currentActivity.startActivityForResult(intent, REQUEST_CODE);
+  }
+
+  public static void onUrlChanged(String url) {
+    if (sUrlChangeCallback != null) {
+      sUrlChangeCallback.invoke(url);
+    }
   }
 
   @Override

@@ -12,13 +12,14 @@
 @property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, strong) UIViewController *webVC;
 @property (nonatomic, copy) RCTPromiseResolveBlock openResolveBlock;
+@property (nonatomic, copy) RCTResponseSenderBlock urlChangeCallback;
 @end
 
 @implementation RNInBrowserApp
 
 RCT_EXPORT_MODULE();
 
-RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options urlChangeCallback:(RCTResponseSenderBlock)urlChangeCallback resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
 {
   dispatch_async(dispatch_get_main_queue(), ^{
     NSURL *url = [NSURL URLWithString:urlString];
@@ -29,6 +30,9 @@ RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options res
 
     // Store the resolve block to call it when closed
     self.openResolveBlock = resolve;
+
+    // Store URL change callback
+    self.urlChangeCallback = urlChangeCallback;
 
     // Tạo WKWebView
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
@@ -71,6 +75,7 @@ RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options res
         self.openResolveBlock(@{@"type": @"close"});
         self.openResolveBlock = nil;
       }
+      self.urlChangeCallback = nil;
       self.webVC = nil;
       self.webView = nil;
     }];
@@ -78,6 +83,17 @@ RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options res
 }
 
 #pragma mark - WKNavigationDelegate
+- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
+  // Called when URL changes (navigation committed)
+  NSString *currentURL = webView.URL.absoluteString;
+  NSLog(@"🔄 URL changed to: %@", currentURL);
+
+  // Call the URL change callback if it exists
+  if (self.urlChangeCallback && currentURL) {
+    self.urlChangeCallback(@[currentURL]);
+  }
+}
+
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
   NSLog(@"✅ WebView finished loading: %@", webView.URL.absoluteString);
 }

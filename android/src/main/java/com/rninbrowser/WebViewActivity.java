@@ -59,7 +59,15 @@ public class WebViewActivity extends Activity {
       }
     });
 
-    webView.setWebViewClient(new WebViewClient());
+    webView.setWebViewClient(new WebViewClient() {
+      @Override
+      public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+        super.onPageStarted(view, url, favicon);
+        // Notify URL change
+        android.util.Log.d("WebViewActivity", "🔄 URL changed to: " + url);
+        RNInBrowserAppModule.onUrlChanged(url);
+      }
+    });
     webView.loadUrl(url);
 
     // Close button

@@ -8,7 +8,13 @@ const LINKING_ERROR =
 
 // Native module interface
 interface RNInBrowserAppInterface {
-  open(url: string, options?: InBrowserOptions): Promise<InBrowserResult>;
+  open(
+    url: string,
+    options: Omit<InBrowserOptions, 'onUrlChange'>,
+    urlChangeCallback: (url: string) => void,
+    resolve: (result: InBrowserResult) => void,
+    reject: (error: any) => void
+  ): void;
 }
 
 /**
@@ -21,6 +27,12 @@ export interface InBrowserOptions {
    * - Android: Shows/hides the close button overlay
    */
   showCloseButton?: boolean;
+
+  /**
+   * Callback function called when URL changes
+   * @param url - The new URL
+   */
+  onUrlChange?: (url: string) => void;
 }
 
 /**
@@ -61,9 +73,12 @@ const RNInBrowserApp: RNInBrowserAppInterface = NativeModules.RNInBrowserApp
  * const result = await openInAppBrowser('https://example.com');
  * console.log(result.type); // 'close' or 'dismiss'
  *
- * // With options
+ * // With options and URL change listener
  * await openInAppBrowser('https://example.com', {
- *   showCloseButton: false
+ *   showCloseButton: false,
+ *   onUrlChange: (url) => {
+ *     console.log('URL changed to:', url);
+ *   }
  * });
  * ```
  */
@@ -71,7 +86,17 @@ export const openInAppBrowser = async (
   url: string,
   options?: InBrowserOptions
 ): Promise<InBrowserResult> => {
-  return RNInBrowserApp.open(url, options || {});
+  const { onUrlChange, ...nativeOptions } = options || {};
+
+  return new Promise((resolve, reject) => {
+    RNInBrowserApp.open(
+      url,
+      nativeOptions,
+      onUrlChange || (() => {}),
+      resolve,
+      reject
+    );
+  });
 };
 
 export default RNInBrowserApp;
