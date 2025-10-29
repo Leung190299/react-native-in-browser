@@ -8,22 +8,22 @@ import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
-import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.modules.core.DeviceEventManagerModule;
 
 public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements ActivityEventListener {
   private static final int REQUEST_CODE = 1001;
   private Promise mPromise;
-  private static Callback sUrlChangeCallback;
+  private static ReactApplicationContext sReactContext;
 
   public RNInBrowserAppModule(ReactApplicationContext reactContext) {
     super(reactContext);
     reactContext.addActivityEventListener(this);
+    sReactContext = reactContext;
   }
 
   @NonNull
@@ -33,7 +33,7 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
   }
 
   @ReactMethod
-  public void open(String url, ReadableMap options, Callback urlChangeCallback, Promise promise) {
+  public void open(String url, ReadableMap options, Promise promise) {
     Activity currentActivity = getCurrentActivity();
 
     if (currentActivity == null) {
@@ -42,7 +42,6 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
     }
 
     mPromise = promise;
-    sUrlChangeCallback = urlChangeCallback;
 
     Intent intent = new Intent(currentActivity, WebViewActivity.class);
     intent.putExtra("url", url);
@@ -57,9 +56,13 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
     currentActivity.startActivityForResult(intent, REQUEST_CODE);
   }
 
-  public static void onUrlChanged(String url) {
-    if (sUrlChangeCallback != null) {
-      sUrlChangeCallback.invoke(url);
+  public static void sendUrlChangeEvent(String url) {
+    if (sReactContext != null) {
+      WritableMap params = Arguments.createMap();
+      params.putString("url", url);
+      sReactContext
+        .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class)
+        .emit("onUrlChange", params);
     }
   }
 

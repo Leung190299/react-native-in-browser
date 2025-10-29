@@ -24,6 +24,8 @@ public class RNInBrowserAppPackage implements ReactPackage {
   @NonNull
   @Override
   public List<ViewManager> createViewManagers(@NonNull ReactApplicationContext reactContext) {
-    return Collections.emptyList();
+    List<ViewManager> viewManagers = new ArrayList<>();
+    viewManagers.add(new RNInBrowserWebViewManager());
+    return viewManagers;
   }
 }

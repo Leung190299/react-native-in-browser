@@ -65,7 +65,7 @@ public class WebViewActivity extends Activity {
         super.onPageStarted(view, url, favicon);
         // Notify URL change
         android.util.Log.d("WebViewActivity", "🔄 URL changed to: " + url);
-        RNInBrowserAppModule.onUrlChanged(url);
+        RNInBrowserAppModule.sendUrlChangeEvent(url);
       }
     });
     webView.loadUrl(url);

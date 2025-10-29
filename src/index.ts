@@ -1,4 +1,4 @@
-import { NativeModules, Platform } from 'react-native';
+import { NativeModules, NativeEventEmitter, Platform } from 'react-native';
 
 const LINKING_ERROR =
   `The package 'react-native-in-browser' doesn't seem to be linked. Make sure: \n\n` +
@@ -10,11 +10,8 @@ const LINKING_ERROR =
 interface RNInBrowserAppInterface {
   open(
     url: string,
-    options: Omit<InBrowserOptions, 'onUrlChange'>,
-    urlChangeCallback: (url: string) => void,
-    resolve: (result: InBrowserResult) => void,
-    reject: (error: any) => void
-  ): void;
+    options: Omit<InBrowserOptions, 'onUrlChange'>
+  ): Promise<InBrowserResult>;
 }
 
 /**
@@ -59,6 +56,9 @@ const RNInBrowserApp: RNInBrowserAppInterface = NativeModules.RNInBrowserApp
       }
     );
 
+// Create event emitter
+const eventEmitter = new NativeEventEmitter(NativeModules.RNInBrowserApp);
+
 /**
  * Opens a URL in an in-app browser
  *
@@ -88,15 +88,32 @@ export const openInAppBrowser = async (
 ): Promise<InBrowserResult> => {
   const { onUrlChange, ...nativeOptions } = options || {};
 
-  return new Promise((resolve, reject) => {
-    RNInBrowserApp.open(
-      url,
-      nativeOptions,
-      onUrlChange || (() => {}),
-      resolve,
-      reject
-    );
-  });
+  // Set up URL change listener if provided
+  let urlChangeSubscription: any;
+  if (onUrlChange) {
+    urlChangeSubscription = eventEmitter.addListener('onUrlChange', (event: { url: string }) => {
+      onUrlChange(event.url);
+    });
+  }
+
+  try {
+    const result = await RNInBrowserApp.open(url, nativeOptions);
+    return result;
+  } finally {
+    // Clean up listener when browser closes
+    if (urlChangeSubscription) {
+      urlChangeSubscription.remove();
+    }
+  }
 };
+
+export {
+  WebView,
+  type WebViewProps,
+  type WebViewRef,
+  type WebViewLoadEvent,
+  type WebViewErrorEvent,
+  type WebViewNavigationEvent,
+} from './WebView';
 
 export default RNInBrowserApp;

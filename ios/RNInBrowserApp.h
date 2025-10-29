@@ -6,7 +6,8 @@
 //
 
 #import <React/RCTBridgeModule.h>
+#import <React/RCTEventEmitter.h>
 #import <WebKit/WebKit.h>
 
-@interface RNInBrowserApp : NSObject <RCTBridgeModule, WKNavigationDelegate>
+@interface RNInBrowserApp : RCTEventEmitter <RCTBridgeModule, WKNavigationDelegate>
 @end
