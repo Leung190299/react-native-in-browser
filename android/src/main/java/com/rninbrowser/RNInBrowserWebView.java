@@ -19,6 +19,7 @@ import com.facebook.react.uimanager.events.RCTEventEmitter;
 
 public class RNInBrowserWebView extends WebView {
   private String currentUrl;
+  private String lastReportedUrl;
 
   @SuppressLint("SetJavaScriptEnabled")
   public RNInBrowserWebView(Context context) {
@@ -74,6 +75,17 @@ public class RNInBrowserWebView extends WebView {
         event.putBoolean("canGoBack", view.canGoBack());
         event.putBoolean("canGoForward", view.canGoForward());
         sendEvent("onLoadEnd", event);
+
+        // Check for URL changes after page finished (catches JS navigations)
+        checkUrlChange();
+      }
+
+      @Override
+      public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+        super.doUpdateVisitedHistory(view, url, isReload);
+
+        // This catches all URL changes including hash and query param changes
+        checkUrlChange();
       }
 
       @Override
@@ -90,10 +102,6 @@ public class RNInBrowserWebView extends WebView {
 
       @Override
       public boolean shouldOverrideUrlLoading(WebView view, String url) {
-        // Send onUrlChange event when URL is about to change
-        WritableMap event = Arguments.createMap();
-        event.putString("url", url);
-        sendEvent("onUrlChange", event);
         return false;
       }
     });
@@ -103,6 +111,16 @@ public class RNInBrowserWebView extends WebView {
     if (url != null && !url.equals(currentUrl)) {
       currentUrl = url;
       loadUrl(url);
+    }
+  }
+
+  private void checkUrlChange() {
+    String newUrl = getUrl();
+    if (newUrl != null && !newUrl.equals(lastReportedUrl)) {
+      lastReportedUrl = newUrl;
+      WritableMap event = Arguments.createMap();
+      event.putString("url", newUrl);
+      sendEvent("onUrlChange", event);
     }
   }
 

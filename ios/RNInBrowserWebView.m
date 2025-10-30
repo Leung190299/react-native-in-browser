@@ -9,6 +9,7 @@
 
 @interface RNInBrowserWebView ()
 @property (nonatomic, strong) WKWebView *webView;
+@property (nonatomic, copy) NSString *lastReportedURL;
 @end
 
 @implementation RNInBrowserWebView
@@ -30,12 +31,36 @@
   self.webView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
   self.webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
 
+  // Observe URL changes to catch all navigations including hash/query param changes
+  [self.webView addObserver:self forKeyPath:@"URL" options:NSKeyValueObservingOptionNew context:nil];
+
   [self addSubview:self.webView];
 }
 
 - (void)layoutSubviews {
   [super layoutSubviews];
   self.webView.frame = self.bounds;
+}
+
+- (void)dealloc {
+  [self.webView removeObserver:self forKeyPath:@"URL"];
+}
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey,id> *)change
+                       context:(void *)context {
+  if ([keyPath isEqualToString:@"URL"] && object == self.webView) {
+    NSString *newURL = self.webView.URL.absoluteString ?: @"";
+
+    // Only fire onUrlChange if the URL actually changed
+    if (self.onUrlChange && ![newURL isEqualToString:self.lastReportedURL]) {
+      self.lastReportedURL = newURL;
+      self.onUrlChange(@{
+        @"url": newURL
+      });
+    }
+  }
 }
 
 - (void)setUrl:(NSString *)url {
@@ -76,14 +101,6 @@
 - (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
   if (self.onLoadStart) {
     self.onLoadStart(@{
-      @"url": webView.URL.absoluteString ?: @""
-    });
-  }
-}
-
-- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
-  if (self.onUrlChange) {
-    self.onUrlChange(@{
       @"url": webView.URL.absoluteString ?: @""
     });
   }
