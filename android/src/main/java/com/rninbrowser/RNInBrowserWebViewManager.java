@@ -1,5 +1,8 @@
 package com.rninbrowser;
 
+import android.view.ViewGroup;
+import android.view.ViewGroup.LayoutParams;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -24,12 +27,21 @@ public class RNInBrowserWebViewManager extends SimpleViewManager<RNInBrowserWebV
   @NonNull
   @Override
   protected RNInBrowserWebView createViewInstance(@NonNull ThemedReactContext reactContext) {
-    return new RNInBrowserWebView(reactContext);
+    RNInBrowserWebView webView = new RNInBrowserWebView(reactContext);
+
+    // ✅ Cho phép WebView match với style từ React Native (flex hoặc width/height)
+    ViewGroup.LayoutParams params = new ViewGroup.LayoutParams(
+        LayoutParams.MATCH_PARENT,
+        LayoutParams.MATCH_PARENT
+    );
+    webView.setLayoutParams(params);
+
+    return webView;
   }
 
   @ReactProp(name = "url")
   public void setUrl(RNInBrowserWebView view, @Nullable String url) {
-    if (url != null) {
+    if (url != null && !url.isEmpty()) {
       view.setUrl(url);
     }
   }
@@ -59,14 +71,10 @@ public class RNInBrowserWebViewManager extends SimpleViewManager<RNInBrowserWebV
   public void receiveCommand(@NonNull RNInBrowserWebView view, int commandId, @Nullable ReadableArray args) {
     switch (commandId) {
       case 1: // goBack
-        if (view.canGoBack()) {
-          view.goBack();
-        }
+        if (view.canGoBack()) view.goBack();
         break;
       case 2: // goForward
-        if (view.canGoForward()) {
-          view.goForward();
-        }
+        if (view.canGoForward()) view.goForward();
         break;
       case 3: // reload
         view.reload();
