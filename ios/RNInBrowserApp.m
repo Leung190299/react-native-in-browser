@@ -12,6 +12,7 @@
 @property (nonatomic, strong) WKWebView *webView;
 @property (nonatomic, strong) UIViewController *webVC;
 @property (nonatomic, copy) RCTPromiseResolveBlock openResolveBlock;
+@property (nonatomic, copy) NSString *lastTrackedURL;
 @end
 
 @implementation RNInBrowserApp
@@ -37,6 +38,9 @@ RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options res
 
     self.webView = [[WKWebView alloc] initWithFrame:[UIScreen mainScreen].bounds configuration:config];
     self.webView.navigationDelegate = self;
+
+    // Add KVO observer to track URL changes (including params)
+    [self.webView addObserver:self forKeyPath:@"URL" options:NSKeyValueObservingOptionNew context:nil];
 
     // Load URL
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
@@ -65,6 +69,11 @@ RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options res
 
 - (void)closeWebView {
   if (self.webVC) {
+    // Remove KVO observer before dismissing
+    if (self.webView) {
+      [self.webView removeObserver:self forKeyPath:@"URL"];
+    }
+
     [self.webVC dismissViewControllerAnimated:YES completion:^{
       // Resolve with "close" when the screen is closed
       if (self.openResolveBlock) {
@@ -73,22 +82,26 @@ RCT_EXPORT_METHOD(open:(NSString *)urlString options:(NSDictionary *)options res
       }
       self.webVC = nil;
       self.webView = nil;
+      self.lastTrackedURL = nil;
     }];
   }
 }
 
-#pragma mark - WKNavigationDelegate
-- (void)webView:(WKWebView *)webView didCommitNavigation:(WKNavigation *)navigation {
-  // Called when URL changes (navigation committed)
-  NSString *currentURL = webView.URL.absoluteString;
-  NSLog(@"🔄 URL changed to: %@", currentURL);
+#pragma mark - KVO for URL changes (including params)
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+  if ([keyPath isEqualToString:@"URL"] && object == self.webView) {
+    NSString *currentURL = self.webView.URL.absoluteString;
 
-  // Emit URL change event
-  if (currentURL) {
-    [self sendEventWithName:@"onUrlChange" body:@{@"url": currentURL}];
+    // Only emit if URL actually changed (avoid duplicates)
+    if (currentURL && ![currentURL isEqualToString:self.lastTrackedURL]) {
+      self.lastTrackedURL = currentURL;
+      NSLog(@"🔄 URL changed to: %@", currentURL);
+      [self sendEventWithName:@"onUrlChange" body:@{@"url": currentURL}];
+    }
   }
 }
 
+#pragma mark - WKNavigationDelegate
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
   NSLog(@"✅ WebView finished loading: %@", webView.URL.absoluteString);
 }
