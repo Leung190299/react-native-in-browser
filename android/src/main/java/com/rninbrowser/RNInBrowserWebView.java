@@ -25,12 +25,34 @@ public class RNInBrowserWebView extends WebView {
   public RNInBrowserWebView(Context context) {
     super(context);
 
+    // Set background to white to avoid transparent/black screen
+    setBackgroundColor(0xFFFFFFFF);
+
+    // Enable hardware acceleration for better performance
+    setLayerType(LAYER_TYPE_HARDWARE, null);
+
     // Enable JavaScript and other settings
     getSettings().setJavaScriptEnabled(true);
     getSettings().setDomStorageEnabled(true);
     getSettings().setMediaPlaybackRequiresUserGesture(false);
     getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
     getSettings().setAllowFileAccess(true);
+    getSettings().setAllowContentAccess(true);
+    getSettings().setAllowFileAccessFromFileURLs(true);
+    getSettings().setAllowUniversalAccessFromFileURLs(true);
+    getSettings().setDatabaseEnabled(true);
+    getSettings().setMixedContentMode(android.webkit.WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+
+    // Additional settings for better compatibility
+    getSettings().setLoadWithOverviewMode(true);
+    getSettings().setUseWideViewPort(true);
+    getSettings().setSupportZoom(true);
+    getSettings().setBuiltInZoomControls(true);
+    getSettings().setDisplayZoomControls(false);
+
+    // Set a user agent to ensure proper rendering
+    String userAgent = getSettings().getUserAgentString();
+    getSettings().setUserAgentString(userAgent + " InAppBrowser");
 
     // Set up WebChromeClient for permissions
     setWebChromeClient(new WebChromeClient() {
