@@ -60,12 +60,33 @@ public class WebViewActivity extends Activity {
     });
 
     webView.setWebViewClient(new WebViewClient() {
+      private String currentUrl = null;
+
       @Override
       public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
         super.onPageStarted(view, url, favicon);
-        // Notify URL change
-        android.util.Log.d("WebViewActivity", "🔄 URL changed to: " + url);
-        RNInBrowserAppModule.sendUrlChangeEvent(url);
+        handleUrlChange(url);
+      }
+
+      @Override
+      public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        handleUrlChange(url);
+        return false; // Let WebView handle the URL
+      }
+
+      @Override
+      public void onPageFinished(WebView view, String url) {
+        super.onPageFinished(view, url);
+        // Also check on page finished to catch any hash/param changes
+        handleUrlChange(url);
+      }
+
+      private void handleUrlChange(String url) {
+        if (url != null && !url.equals(currentUrl)) {
+          currentUrl = url;
+          android.util.Log.d("WebViewActivity", "🔄 URL changed to: " + url);
+          RNInBrowserAppModule.sendUrlChangeEvent(url);
+        }
       }
     });
     webView.loadUrl(url);
