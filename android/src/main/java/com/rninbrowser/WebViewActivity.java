@@ -1,84 +1,147 @@
 package com.rninbrowser;
 
+import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Bundle;
-import android.view.ViewGroup;
+import android.webkit.PermissionRequest;
+import android.webkit.WebChromeClient;
 import android.webkit.WebView;
-import android.widget.Button;
-import android.widget.LinearLayout;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 public class WebViewActivity extends Activity {
-    private RNInBrowserWebView webView;
+  private static final int PERMISSION_REQUEST_CODE = 1;
+  private PermissionRequest mPermissionRequest;
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+  @SuppressLint("SetJavaScriptEnabled")
+  @Override
+  protected void onCreate(Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
 
-        // Create main layout
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-        ));
+    String url = getIntent().getStringExtra("url");
+    boolean showCloseButton = getIntent().getBooleanExtra("showCloseButton", true);
 
-        // Get intent data
-        Intent intent = getIntent();
-        String url = intent.getStringExtra("url");
-        boolean showCloseButton = intent.getBooleanExtra("showCloseButton", true);
+    // Root layout
+    FrameLayout root = new FrameLayout(this);
+    root.setBackgroundColor(Color.WHITE);
 
-        // Create close button if needed
-        if (showCloseButton) {
-            Button closeButton = new Button(this);
-            closeButton.setText("Close");
-            closeButton.setLayoutParams(new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-            ));
-            closeButton.setOnClickListener(v -> {
-                Intent result = new Intent();
-                result.putExtra("type", "dismiss");
-                setResult(RESULT_OK, result);
-                finish();
-            });
-            layout.addView(closeButton);
-        }
+    // WebView
+    WebView webView = new WebView(this);
+    webView.getSettings().setJavaScriptEnabled(true);
+    webView.getSettings().setDomStorageEnabled(true);
+    webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
+    webView.getSettings().setJavaScriptCanOpenWindowsAutomatically(true);
+    webView.getSettings().setAllowFileAccess(true);
 
-        // Create WebView
-        webView = new RNInBrowserWebView(this);
-        webView.setLayoutParams(new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1.0f
-        ));
+    webView.setWebChromeClient(new WebChromeClient() {
+      @Override
+      public void onPermissionRequest(final PermissionRequest request) {
+        mPermissionRequest = request;
 
-        layout.addView(webView);
-        setContentView(layout);
+        if (ContextCompat.checkSelfPermission(WebViewActivity.this, Manifest.permission.CAMERA)
+            != PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(WebViewActivity.this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED) {
 
-        // Load URL
-        if (url != null) {
-            webView.loadUrl(url);
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
+          ActivityCompat.requestPermissions(WebViewActivity.this,
+              new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO},
+              PERMISSION_REQUEST_CODE);
         } else {
-            Intent result = new Intent();
-            result.putExtra("type", "dismiss");
-            setResult(RESULT_OK, result);
-            super.onBackPressed();
+          request.grant(request.getResources());
         }
+      }
+    });
+
+    webView.setWebViewClient(new WebViewClient() {
+      private String currentUrl = null;
+
+      @Override
+      public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+        super.onPageStarted(view, url, favicon);
+        handleUrlChange(url);
+      }
+
+      @Override
+      public boolean shouldOverrideUrlLoading(WebView view, String url) {
+        handleUrlChange(url);
+        return false; // Let WebView handle the URL
+      }
+
+      @Override
+      public void onPageFinished(WebView view, String url) {
+        super.onPageFinished(view, url);
+        // Also check on page finished to catch any hash/param changes
+        handleUrlChange(url);
+      }
+
+      private void handleUrlChange(String url) {
+        if (url != null && !url.equals(currentUrl)) {
+          currentUrl = url;
+          android.util.Log.d("WebViewActivity", "🔄 URL changed to: " + url);
+          RNInBrowserAppModule.sendUrlChangeEvent(url);
+        }
+      }
+    });
+    webView.loadUrl(url);
+
+    // Close button
+    ImageButton closeButton = new ImageButton(this);
+    closeButton.setImageResource(android.R.drawable.ic_menu_close_clear_cancel);
+    closeButton.setBackgroundColor(Color.TRANSPARENT);
+    FrameLayout.LayoutParams closeParams = new FrameLayout.LayoutParams(100, 100);
+    closeParams.leftMargin = 20;
+    closeParams.topMargin = 60;
+
+    closeButton.setOnClickListener(v -> {
+      Intent resultIntent = new Intent();
+      resultIntent.putExtra("type", "close");
+      setResult(RESULT_OK, resultIntent);
+      finish();
+    });
+
+    root.addView(webView);
+
+    if (showCloseButton) {
+      root.addView(closeButton, closeParams);
     }
 
-    @Override
-    protected void onDestroy() {
-        if (webView != null) {
-            webView.destroy();
+    setContentView(root);
+  }
+
+  @Override
+  public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+    super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+    if (requestCode == PERMISSION_REQUEST_CODE && mPermissionRequest != null) {
+      boolean allGranted = true;
+      for (int result : grantResults) {
+        if (result != PackageManager.PERMISSION_GRANTED) {
+          allGranted = false;
+          break;
         }
-        super.onDestroy();
+      }
+
+      if (allGranted) {
+        mPermissionRequest.grant(mPermissionRequest.getResources());
+      } else {
+        mPermissionRequest.deny();
+      }
+      mPermissionRequest = null;
     }
+  }
+
+  @Override
+  public void onBackPressed() {
+    Intent resultIntent = new Intent();
+    resultIntent.putExtra("type", "dismiss");
+    setResult(RESULT_OK, resultIntent);
+    super.onBackPressed();
+  }
 }
