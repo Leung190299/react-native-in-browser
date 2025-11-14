@@ -10,13 +10,14 @@ import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
+import com.facebook.react.bridge.LifecycleEventListener;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
 
-public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements ActivityEventListener {
+public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements ActivityEventListener, LifecycleEventListener {
   private static final int REQUEST_CODE = 1001;
   private Promise mPromise;
   private static ReactApplicationContext sReactContext;
@@ -24,6 +25,7 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
   public RNInBrowserAppModule(ReactApplicationContext reactContext) {
     super(reactContext);
     reactContext.addActivityEventListener(this);
+    reactContext.addLifecycleEventListener(this);
     sReactContext = reactContext;
   }
 
@@ -35,7 +37,7 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
 
   @ReactMethod
   public void open(String url, ReadableMap options, Promise promise) {
-    Activity currentActivity = getCurrentActivity();
+    Activity currentActivity = getReactApplicationContext().getCurrentActivity();
 
     if (currentActivity == null) {
       promise.reject("NO_ACTIVITY", "Activity doesn't exist");
@@ -55,6 +57,21 @@ public class RNInBrowserAppModule extends ReactContextBaseJavaModule implements 
     intent.putExtra("showCloseButton", showCloseButton);
 
     currentActivity.startActivityForResult(intent, REQUEST_CODE);
+  }
+
+  @Override
+  public void onHostResume() {
+
+  }
+
+  @Override
+  public void onHostPause() {
+
+  }
+
+  @Override
+  public void onHostDestroy() {
+
   }
 
   public static void sendUrlChangeEvent(String url) {
